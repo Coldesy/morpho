@@ -104,10 +104,8 @@ export async function setCachedResult(
     }
 }
 
-// ── Demo Preload Data ────────────────────────────────────
-// These entries can be seeded via the /api/pipeline route
-// or loaded directly. The DEMO_QUERIES list is used by the
-// SearchBar to show instant-load badges.
+
+
 export const DEMO_QUERIES = [
     'Human Heart',
     'Solar System',

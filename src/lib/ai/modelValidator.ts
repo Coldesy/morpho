@@ -1,6 +1,6 @@
 // ============================================================
 // Morpho 2.0 — Hybrid Model Validator
-// Score = 0.4×semantic + 0.3×LLM + 0.2×metadata + 0.1×geometry
+// Score = 0.25×semantic + 0.50×LLM + 0.15×metadata + 0.10×geometry
 // ============================================================
 
 import { ConceptAnalysis, ModelValidation, SketchfabModel } from '@/types/types';
@@ -17,10 +17,46 @@ interface LLMValidationResult {
 }
 
 /**
+ * Detect if a model is an environmental panorama/skybox which are bad for object queries.
+ */
+/**
+ * Detect if a model is an environmental panorama/skybox or just a username match.
+ */
+function environmentalPenalty(model: SketchfabModel, concept: ConceptAnalysis): number {
+    const negativeKeywords = ['360', 'panorama', 'hdri', 'skybox', 'inward-facing', 'equirectangular', 'world', 'environment'];
+    const nameLower = model.name.toLowerCase();
+    const tagsLower = model.tags?.map(t => t.toLowerCase()) || [];
+    const descLower = (model.description || '').toLowerCase();
+    const authorLower = (model.author || '').toLowerCase();
+    const conceptLower = concept.concept.toLowerCase();
+
+    const isEnv = negativeKeywords.some(key => 
+        nameLower.includes(key) || 
+        tagsLower.some(t => t.includes(key)) ||
+        descLower.includes(key)
+    );
+
+    // If it looks like an environment but we are looking for a discrete concept, penalize heavily
+    // Expanded categories to catch 'scientific object', 'celestial', etc.
+    const discreteCategories = ['object', 'biological', 'mechanical', 'chemical', 'structure', 'celestial', 'scientific', 'geological'];
+    const isDiscrete = discreteCategories.some(cat => concept.category.toLowerCase().includes(cat));
+
+    if (isEnv && isDiscrete) {
+        return -1.0; // Knock out the model
+    }
+
+    return 0;
+}
+
+/**
  * Compute metadata quality score for a model (0-1).
  */
-function metadataQualityScore(model: SketchfabModel): number {
+function metadataQualityScore(model: SketchfabModel, concept: ConceptAnalysis): number {
     let score = 0;
+
+    // Detection of environmental models (bad for discrete objects)
+    const penalty = environmentalPenalty(model, concept);
+    if (penalty < 0) return 0;
 
     // Has description
     if (model.description && model.description.length > 20) score += 0.3;
@@ -29,9 +65,6 @@ function metadataQualityScore(model: SketchfabModel): number {
     // Has tags
     if (model.tags && model.tags.length >= 5) score += 0.3;
     else if (model.tags && model.tags.length > 0) score += 0.15;
-
-    // Has author
-    if (model.author && model.author !== 'Unknown') score += 0.1;
 
     // Has preview
     if (model.preview_url) score += 0.1;
@@ -105,9 +138,10 @@ Score each model (0.0 to 1.0):
 4. confidence: Overall confidence in the evaluation (0.0-1.0)
 
 RULES:
+- Do NOT validate "360 panoramas" or "HDRIs" as scientific objects.
+- REJECT models that are clearly unrelated to the concept (e.g. Reject a "Cat" if the concept is "Atom").
+- If the name doesn't match the concept, the relevance_score must be < 0.2.
 - Use the FULL scoring range
-- Stylised cartoon max 0.5 structural_accuracy
-- Low polygon (<5000) cap structural_accuracy at 0.6
 
 Return a JSON array:
 [
@@ -182,12 +216,12 @@ export async function hybridValidate(
         const llmComposite = llm
             ? (llm.relevance_score + llm.structural_accuracy + llm.educational_value) / 3
             : 0.3; // neutral default
-        const metadata = metadataQualityScore(model);
+        const metadata = metadataQualityScore(model, concept);
         const geometry = geometryComplexityScore(model);
 
-        // Weighted composite: 0.4 semantic + 0.3 LLM + 0.2 metadata + 0.1 geometry
+        // Weighted composite: 0.25 semantic + 0.50 LLM + 0.15 metadata + 0.10 geometry
         const composite_score =
-            0.4 * semantic + 0.3 * llmComposite + 0.2 * metadata + 0.1 * geometry;
+            0.25 * semantic + 0.50 * llmComposite + 0.15 * metadata + 0.10 * geometry;
 
         return {
             model,

@@ -128,122 +128,6 @@ export default function HomePage() {
     }
   }, []);
 
-  // ─── Regenerate with Tripo ────────────────────────────────
-  const handleRegenerate = useCallback(async () => {
-    if (!result || regenerating) return;
-    setRegenerating(true);
-    try {
-      const res = await fetch('/api/models/fallback', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          concept: result.concept.concept,
-          category: result.concept.category,
-          components: result.concept.components,
-          structural_description: result.concept.structural_description,
-        }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setResult((prev) =>
-          prev
-            ? {
-                ...prev,
-                source: data.source,
-                model_url: data.model_url ?? undefined,
-                embed_url: undefined,
-                model_uid: undefined,
-                preview_url: undefined,
-                primitiveConfig: data.primitiveConfig,
-                confidence: data.confidence ?? (data.source === 'tripo' ? 0.78 : 0.45),
-                explanation: data.explanation,
-              }
-            : prev
-        );
-      }
-    } catch (err) {
-      console.error('Regenerate error:', err);
-    } finally {
-      setRegenerating(false);
-    }
-  }, [result, regenerating]);
-
-  // ─── Direct Tripo Generation ──────────────────────────────
-  const handleGenerateTripo = useCallback(async () => {
-    if (!result || generatingTripo) return;
-    setGeneratingTripo(true);
-    try {
-      const res = await fetch('/api/models/tripo', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          concept: result.concept.concept,
-        }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setResult((prev) =>
-          prev
-            ? {
-                ...prev,
-                source: data.source,
-                model_url: data.model_url ?? undefined,
-                embed_url: undefined,
-                model_uid: undefined,
-                preview_url: undefined,
-                primitiveConfig: undefined,
-                confidence: data.confidence,
-                explanation: data.explanation,
-              }
-            : prev
-        );
-      }
-    } catch (err) {
-      console.error('Direct Tripo error:', err);
-    } finally {
-      setGeneratingTripo(false);
-    }
-  }, [result, generatingTripo]);
-
-  // ─── Audio description (TTS) ──────────────────────────────
-  const handleAudioDescription = useCallback(async () => {
-    if (!result) return;
-    if (audioDescription) {
-      setAudioDescription(null);
-      if ('speechSynthesis' in window) speechSynthesis.cancel();
-      return;
-    }
-
-    setLoadingAudio(true);
-    try {
-      const res = await fetch('/api/accessibility/describe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          concept: result.concept.concept,
-          components: result.concept.components,
-          structural_description: result.concept.structural_description,
-        }),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        setAudioDescription(data.description);
-
-        if ('speechSynthesis' in window) {
-          const utterance = new SpeechSynthesisUtterance(data.description);
-          utterance.rate = 0.9;
-          utterance.pitch = 1;
-          speechSynthesis.speak(utterance);
-        }
-      }
-    } catch (err) {
-      console.error('Audio description error:', err);
-    } finally {
-      setLoadingAudio(false);
-    }
-  }, [result, audioDescription]);
-
   // Cleanup speech on unmount
   useEffect(() => {
     return () => {
@@ -358,17 +242,6 @@ export default function HomePage() {
           <PipelineProgressUI step={pipelineStep} />
         )}
 
-        {/* Regenerating spinner overlay */}
-        {regenerating && (
-          <div className="pipeline-overlay" style={{ background: 'rgba(10,10,15,0.7)' }}>
-            <div style={{ fontSize: 64 }}>🤖</div>
-            <div className="pipeline-message">Generating AI 3D model…</div>
-            <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 8 }}>
-              Tripo AI is building your model (this can take 60–90 seconds)
-            </div>
-          </div>
-        )}
-
         {error && !result && (
           <div className="viewer-placeholder">
             <div className="error-banner">⚠️ {error}</div>
@@ -424,34 +297,6 @@ export default function HomePage() {
                 onClick={() => setExplodedView(!explodedView)}
               >
                 💥 Exploded View
-              </button>
-              <button
-                className="viewer-ctrl-btn"
-                onClick={handleRegenerate}
-                disabled={regenerating}
-                title="Discard and re-generate using AI fallback"
-                style={{
-                  background: regenerating ? 'transparent' : 'rgba(139,92,246,0.15)',
-                  borderColor: regenerating ? undefined : 'rgba(139,92,246,0.4)',
-                  color: regenerating ? undefined : '#a78bfa',
-                  opacity: regenerating ? 0.6 : 1,
-                }}
-              >
-                {regenerating ? '⏳ Generating…' : '🤖 Generate with AI'}
-              </button>
-              <button
-                className="viewer-ctrl-btn"
-                onClick={handleGenerateTripo}
-                disabled={generatingTripo}
-                title="Force direct generation using Tripo AI"
-                style={{
-                  background: generatingTripo ? 'transparent' : 'rgba(16,185,129,0.15)',
-                  borderColor: generatingTripo ? undefined : 'rgba(16,185,129,0.4)',
-                  color: generatingTripo ? undefined : '#34d399',
-                  opacity: generatingTripo ? 0.6 : 1,
-                }}
-              >
-                {generatingTripo ? '⏳ Generating…' : '✨ Generate with Tripo'}
               </button>
             </div>
           </>

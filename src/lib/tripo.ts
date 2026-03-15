@@ -80,10 +80,23 @@ export async function pollTripoTask(
  */
 export async function generateTripoModel(prompt: string): Promise<string | null> {
     try {
+        console.log(`[Tripo] Initiating generation for prompt: "${prompt}"`);
         const taskId = await createTripoTask(prompt);
-        if (!taskId) return null;
-        return await pollTripoTask(taskId);
-    } catch {
+        if (!taskId) {
+            console.error('[Tripo] Failed to get taskId');
+            return null;
+        }
+        console.log(`[Tripo] Task created successfully. Task ID: ${taskId}. Beginning poll...`);
+        const resultUrl = await pollTripoTask(taskId);
+        
+        if (resultUrl) {
+            console.log(`[Tripo] Generation complete! URL: ${resultUrl}`);
+        } else {
+            console.error('[Tripo] Polling returned null (timeout or failure)');
+        }
+        return resultUrl;
+    } catch (e: any) {
+        console.error('[Tripo] Critical Error in generateTripoModel:', e.message || e);
         return null;
     }
 }

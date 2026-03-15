@@ -6,6 +6,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateTripoModel } from '@/lib/tripo';
 
+export const maxDuration = 300;
+
 export async function POST(req: NextRequest) {
     try {
         const { concept } = await req.json();

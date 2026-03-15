@@ -7,6 +7,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { generateFallback } from '@/lib/ai/fallbackGenerator';
 import { ConceptAnalysis } from '@/types/types';
 
+export const maxDuration = 300;
+
 export async function POST(req: NextRequest) {
     try {
         const { concept, category, components, structural_description } = await req.json();

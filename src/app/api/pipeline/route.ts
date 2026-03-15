@@ -16,7 +16,7 @@ import {
     SketchfabModel,
 } from '@/types/types';
 
-export const maxDuration = 120;
+export const maxDuration = 300;
 
 export async function POST(req: NextRequest) {
     const startTime = Date.now();
@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
         if (isParagraph) {
             const { generateScene } = await import('@/lib/ai/sceneGenerator');
             const sceneConfig = await generateScene(query);
-            
+
             // Build pseudo concept
             const concept = {
                 concept: 'Scene: ' + query.split(' ').slice(0, 4).join(' ') + '...',
@@ -74,9 +74,9 @@ export async function POST(req: NextRequest) {
                 pipeline_time_ms: Date.now() - startTime,
                 cached: false
             };
-            
+
             setCachedResult(query, result);
-            
+
             // Analytics
             logPipelineRun({
                 query_id: result.query_id,
@@ -119,9 +119,13 @@ export async function POST(req: NextRequest) {
         const educationalPromise = generateEducationalBreakdown(concept);
 
         // ─── Step 2: Sketchfab Search ────────────────────────
+        const scientificCategories = ['biological', 'geological', 'chemical', 'mechanical', 'structure', 'celestial', 'scientific'];
+        const isScientific = scientificCategories.some(cat => concept.category.toLowerCase().includes(cat));
+
         const searchTerms = [
             concept.concept,
-            ...concept.similar_objects.slice(0, 3),
+            ...(isScientific ? [`${concept.concept} scientific model`, `${concept.concept} educational`, `${concept.concept} diagram`, `${concept.concept} anatomy`] : []),
+            ...concept.similar_objects.slice(0, 2),
         ];
 
         let sketchfabModels: SketchfabModel[] = [];
@@ -138,7 +142,7 @@ export async function POST(req: NextRequest) {
             const validationResults = await hybridValidate(concept, query, sketchfabModels);
 
             const best = validationResults[0];
-            if (best && best.composite_score >= 0.5) {
+            if (best && best.composite_score >= 0.7) {
                 result = {
                     query_id: queryId ?? '',
                     concept,
@@ -156,10 +160,15 @@ export async function POST(req: NextRequest) {
             } else {
                 // Name-based heuristic fallback
                 const conceptLower = concept.concept.toLowerCase();
-                const nameMatch = sketchfabModels.find((m) =>
-                    m.name.toLowerCase().includes(conceptLower) ||
-                    conceptLower.includes(m.name.toLowerCase())
-                );
+                const negativeKeywords = ['panorama', 'hdri', 'skybox', '360'];
+                
+                const nameMatch = sketchfabModels.find((m) => {
+                    const nameLower = m.name.toLowerCase();
+                    const hasNegative = negativeKeywords.some(key => nameLower.includes(key));
+                    if (hasNegative) return false;
+                    
+                    return nameLower.includes(conceptLower) || conceptLower.includes(nameLower);
+                });
 
                 if (nameMatch) {
                     const matchValidation = validationResults.find(

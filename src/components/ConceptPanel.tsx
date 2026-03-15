@@ -21,8 +21,15 @@ export default function ConceptPanel({ breakdown, conceptName, onStartTour, isTo
 
     return (
         <div className="panel-section concept-panel">
-            <div className="panel-section-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span>🎓 Learn About {conceptName}</span>
+            <div className="panel-section-title" style={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center',
+                gap: '12px',
+                flexWrap: 'wrap',
+                marginBottom: '16px'
+            }}>
+                <span style={{ flex: 1, minWidth: '120px' }}>🎓 Learn About {conceptName}</span>
                 {onStartTour && (
                     <button 
                         onClick={onStartTour}
@@ -31,14 +38,17 @@ export default function ConceptPanel({ breakdown, conceptName, onStartTour, isTo
                             background: isTourPlaying ? 'rgba(255,255,255,0.1)' : 'var(--accent-gradient)',
                             color: 'white',
                             border: 'none',
-                            padding: '4px 12px',
-                            borderRadius: '4px',
-                            fontSize: '12px',
+                            padding: '6px 14px',
+                            borderRadius: '6px',
+                            fontSize: '11px',
                             cursor: isTourPlaying ? 'not-allowed' : 'pointer',
-                            fontWeight: 600
+                            fontWeight: 700,
+                            whiteSpace: 'nowrap',
+                            boxShadow: isTourPlaying ? 'none' : '0 2px 8px rgba(99, 102, 241, 0.3)',
+                            transition: 'all 0.2s ease'
                         }}
                     >
-                        {isTourPlaying ? '🔊 Playing Tour...' : '▶ Start Guided Tour'}
+                        {isTourPlaying ? '🔊 Playing...' : '▶ Start Tour'}
                     </button>
                 )}
             </div>
